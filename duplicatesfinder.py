@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Python 3.4.3, set console to utf-8 before using
-
-# TODO
-#    Fix problem with display unicode filenames in console (force interpreter send to terminal UTF-8, even, if console work with ANSI, 866, etc.)
-
-''' Duplicates finder '''
+# Python 3.4.3
 
 import os
 from hashlib import md5, sha1, sha256, sha512
@@ -19,6 +14,7 @@ def getHashSum(fileName, hashfunc = md5, chunksize = 4096):
                 h.update(chunk)
             else:
                 return h.hexdigest()
+                 
                 
 def compareFiles(filename_1, filename_2, chunksize = 4096):
     with open(filename_1, 'rb') as f1:
@@ -31,52 +27,86 @@ def compareFiles(filename_1, filename_2, chunksize = 4096):
                 elif (not chunk1) and (not chunk2):
                     return True
                     
-def getDuplicatesDict(path = '.'):
+def getHashs(*roots):
     hashdict = {}
-    for dirname, dirslist, filelist in os.walk(path):
-        print(dirname)
-        for filename in filelist:
-            absfilename = dirname+'\\'+filename
-            try:
-                hash = getHashSum(absfilename)
-                size = os.path.getsize(absfilename)
-                key = (size, hash)
-                if key in hashdict:
-                    hashdict[key].append((dirname, filename))
+    for root in roots:
+        for dirname, dirslist, filelist in os.walk(root):
+            for filename in filelist:
+                absfilename = os.path.join(dirname, filename)
+                try:
+                    hash = getHashSum(absfilename)
+                    size = os.path.getsize(absfilename)
+                except:
+                    pass
                 else:
-                    hashdict[key] = [(dirname, filename)]
-            except:
-                print("ERROR WHILE ACCESS TO FILE:", absfilename)
-    print('Walk done')
-    for key in list(hashdict.keys()):
-        if len(hashdict[key]) == 1:
-            del hashdict[key]
-    # Compare files with equal hashes byte per byte to make shure that they are same
-    for key in list(hashdict.keys()):
-        duplicateslists = []
-        for i in range (0, len(hashdict[key])): # C-style enabled
-            for j in range (i+1, len(hashdict[key])):
-                nextj = False
-                for dl in duplicateslists:
-                    if hashdict[key][j] in dl:
-                        nextj = True
-                        break
-                if nextj: 
-                    continue
-                if compareFiles('\\'.join(hashdict[key][i]), '\\'.join(hashdict[key][j])):
-                    for dl in duplicateslists:
-                        if hashdict[key][i] in dl:
-                            dl.append(hashdict[key][j])
-                            break
+                    key = (size, hash)
+                    if key in hashdict:
+                        hashdict[key].append((absfilename, root))
                     else:
-                        duplicateslists.append([hashdict[key][i], hashdict[key][j]])
-        counter = 1
-        listscount = len(duplicateslists)
-        for dl in duplicateslists:
-            hashdict[key+(counter, listscount)] = dl
-            counter += 1
-        del hashdict[key]
+                        hashdict[key] = [(absfilename, root)]
     return hashdict
+    
+def checkHashDuplicates(hashdict):
+    hashes = {}
+    hashes['duplicates'], hashes['unique'] = {}, {}
+    for key in hashdict:
+        if len(hashdict[key]) > 1:
+            hashes['duplicates'][key] = hashdict[key]
+        elif len(hashdict[key]) == 1:
+            hashes['unique'][key] = hashdict[key]
+    return hashes
+
+def in_list_of_lists(ll, item):
+    for list in ll:
+        if item in list:
+            return ll.index(list)+1
+    return False
+    
+def splitByIdentity(list):
+    identity_classes = []
+    for f1 in list:
+        if not in_list_of_lists(identity_classes, f1):
+            for f2 in list[list.index(f1)+1:]:
+                if not in_list_of_lists(identity_classes, f2):
+                    if compareFiles(f1[0],f2[0]):
+                        idx = in_list_of_lists(identity_classes, f1)
+                        if idx:
+                            identity_classes[idx-1].append(f2)
+                        else:
+                            identity_classes.append([f1,f2])  
+    return identity_classes
+    
+def checkDuplicates(hashdupldict):
+    duplicates = {}
+    unique = []
+    for key in hashdupldict[key]:
+        icls = splitByIdentity(hashdupldict[key])
+        dcls = []
+        for icl in icls:
+            if len(icl) > 1:
+                dcls.append(icl)
+            elif len(icl) == 1:
+                unique += icl
+        for dcl in dcls:
+            duplicates[key+((dcls.index(dcl), len(dcls)),)] = dcl
+    return {'duplicates': duplicates, 'unique': unique}
+           
+def getDuplicates(*folders, hashdict=None):
+    if not hashdict:
+        hashdict = getHashs(*folders)
+    return checkDuplicates(checkHashDuplicates(hashdict)['duplicates'])['duplicates']
+    
+def getUnique(*folders, hashdict=None):
+    if not hashdict:
+        hashdict = getHashs(*folders)
+    hashes = checkHashDuplicates(hashdict)
+    unique = [hashes['unique'][key][0] for key in hashes['unique']]
+    unique += checkDuplicates(hashes['duplicates'])['unique']
+    return unique
+    
+def getUnique(folder, *folders):
+    folders = (folder,)+folders
+    getHashs(*folders)
 
 def writeDuplicatesToFile(hashdict, filename = 'DuplicatesList.txt'):
     with open(filename, 'wt', encoding="utf8") as fd:
