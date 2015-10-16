@@ -11,7 +11,9 @@ def in_list_of_lists(ll, item):
             return ll.index(list)+1
     return False
 
-def getHashSum(fileName, hashfunc = md5, chunksize = 4096):
+def_chunksize = 2**9*2**10 #512KB — standart sector size
+    
+def getHashSum(fileName, hashfunc = md5, chunksize = def_chunksize):
     h = hashfunc()
     with open(fileName, 'rb') as fd:
         while True:
@@ -22,7 +24,7 @@ def getHashSum(fileName, hashfunc = md5, chunksize = 4096):
                 return h.hexdigest()
                  
                 
-def compareFiles(filename_1, filename_2, chunksize = 4096):
+def compareFiles(filename_1, filename_2, chunksize = def_chunksize):
     with open(filename_1, 'rb') as f1:
         with open(filename_2, 'rb') as f2:
             while True:
@@ -59,14 +61,14 @@ class FilesStructure:
                     except:
                         pass
                     else:
+                        #DEBAG FEACHURE# print(absfilename)
                         key = (size, hash)
-                        if key in hashdict:
-                            hashdict[key].append((absfilename, 
+                        if key in self._hashes:
+                            self._hashes[key].append((absfilename, 
                                                        self.roots.index(root)))
                         else:
-                            hashdict[key] = [(absfilename, 
+                            self._hashes[key] = [(absfilename, 
                                                        self.roots.index(root))]
-        return hashdict
 
     def addFolders(self, *folders):
         self.roots += folders
@@ -94,14 +96,13 @@ class FilesStructure:
                                 identity_classes.append([f1,f2])  
         return identity_classes
     
-    def _checkDuplicates():
+    def _checkDuplicates(self):
         self._duplicates = []
         self._unique = [self._hash_unique[key][0] for key in self._hash_unique]
         
-        for key in self._hash_dublicates[key]:
-            identity_classes = 
+        for key in self._hash_dublicates:
+            identity_classes = \
                               self._splitByIdentity(self._hash_dublicates[key])
-            self._duplicates = []
             for identity_class in identity_classes:
                 if len(identity_class) > 1:
                     self._duplicates.append(identity_class)
@@ -112,9 +113,9 @@ class FilesStructure:
         if self._unique == None:
             self._checkDuplicates()
         if not folders:
-            return tuple(self._unique)   
+            return tuple(file[0] for file in self._unique)   
         else:
-            unique = [file for file in self._unique 
+            unique = [file[0] for file in self._unique 
                            if self.roots[file[1]] in folders]
             for duplicates_list in self._duplicates:
                 for duplicate in duplicates_list:
@@ -127,13 +128,14 @@ class FilesStructure:
     def getDuplicates(self, *folders):
         if self._duplicates == None:
             self._checkDuplicates()
-        if not folders:
-            return tuple(self._duplicates)  
-        else:
+        if not folders:     
+            return  tuple(tuple(file[0] for file in duplicates_list) \
+                                    for duplicates_list in self._duplicates)
+        elif len(folders) > 1:
             duplicates = []
             for duplicates_list in self._duplicates:
-                for folder in folders
-                    if self.root.index(folder) in \
+                for folder in folders:
+                    if self.roots.index(folder) in \
                                [duplicate[1] for duplicate in duplicates_list]:
                         continue
                     else:
@@ -142,7 +144,17 @@ class FilesStructure:
                     duplicates.append(tuple(duplicate[0] 
                                              for duplicate in duplicates_list))
             return tuple(duplicates)
-
+        elif len(folders) == 1:
+            duplicates = []
+            folder = folders[0]
+            for duplicates_list in self._duplicates:
+                duplicates_roots = [duplicate[1] 
+                                              for duplicate in duplicates_list]
+                if duplicates_roots.count(self.roots.index(folder)) >= 2:
+                    duplicates.append(tuple(duplicate[0] 
+                                             for duplicate in duplicates_list))
+            return tuple(duplicates)
+'''
 def writeDuplicatesToFile(hashdict, filename = 'DuplicatesList.txt'):
     with open(filename, 'wt', encoding="utf8") as fd:
         for hashfile in sorted(hashdict.keys()):
@@ -174,3 +186,4 @@ if __name__ == '__main__':
     d = getDuplicatesDict()
     writeDuplicatesToFile(d)
     writeFoldersToFile(getDuplicatesFolders(d))
+'''
