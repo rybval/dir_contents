@@ -3,7 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from colors import neon
 
-def findUnaccesssiblePaths(path):
+def findUnaccessiblePaths(path):
     fails = []
     for dirpath, dirnames, filenames in os.walk(path):
             for filename in filenames:
@@ -12,7 +12,14 @@ def findUnaccesssiblePaths(path):
                     os.path.getsize(fullpath)
                 except:
                     defects.append(fullpath)
-    return fails
+    return tuple(fails)
+    
+def findEmptyFolders(path):
+    list = []
+    for dirname, dirslist, fileslist in os.walk(path):
+        if len(dirslist) + len(fileslist) == 0:
+            list.append(dirname)
+    return tuple(list)
 
 def getFolderSize(path, mode='bytes'):
     if mode not in ('bytes', 'files', 'dirs', 'folders', 'objects'):
