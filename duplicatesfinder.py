@@ -271,6 +271,9 @@ class FilesStructure:
                         # if len(current_duplicates) >= 2:
                             # duplicates += current_duplicates
             # return tuple(duplicates)
+
+    def getDuplicatesOfFile(path):
+        pass
 '''
 def writeDuplicatesToFile(hashdict, filename = 'DuplicatesList.txt'):
     with open(filename, 'wt', encoding="utf8") as fd:
