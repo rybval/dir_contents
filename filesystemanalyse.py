@@ -3,6 +3,10 @@ import matplotlib
 import matplotlib.pyplot as plt
 from colors import neon
 
+class FileSystem:
+    def __init__(self):
+        self.tree
+
 def findUnaccessiblePaths(path):
     fails = []
     for dirpath, dirnames, filenames in os.walk(path):
