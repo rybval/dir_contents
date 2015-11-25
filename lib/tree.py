@@ -9,9 +9,7 @@ class Item:
             return path_string
 
     def getSize(self):  return self.__size
-        
     def getName(self):  return self.__name
-        
     def getPath(self):
         return os.path.join(self.__parent.getPath(), self.__name())
     
@@ -22,7 +20,9 @@ class Item:
 
 
 class File(Item):
-    def getPath
+    def getHash(self):  return self.__hash
+    def getInode(self): return self.__inode
+    
     def __init__(self, name, parent):
         Item.__init__(self, name, parent)
         self.__hash = None
@@ -30,10 +30,15 @@ class File(Item):
         os.stat(os.path)
 
 
-class Dir(Item):        
+class Dir(Item):
+    def getContent(self): return self.__content
+    def getFiles(self):
+        pass
+    def gerDirs(self):
+        pass
     def __init__(self, name, parent, skeleton = False):
         Item.__init__(self, name, parent)
-        self.__children = []
+        self.__content = tuple()
         
 
 class Root(Directory):
