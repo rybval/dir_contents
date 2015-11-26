@@ -33,9 +33,9 @@ class File(Item):
 class Dir(Item):
     def getContent(self): return self.__content
     def getFiles(self):
-        pass
-    def gerDirs(self):
-        pass
+        return tuple(i for i in self.__content if type(i) is File) 
+    def getDirs(self):
+        return tuple(i for i in self.__content if type(i) is Dir)
     def __init__(self, name, parent, skeleton = False):
         Item.__init__(self, name, parent)
         self.__content = tuple()
