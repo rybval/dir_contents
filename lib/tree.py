@@ -1,6 +1,10 @@
 import os
 import sys
-from hashlib import sha1
+from hashlib import sha1, sha256, sha512, md5
+from binascii import unhexlify, hexlify
+
+hash_chunksize = 2**20
+hash_func = sha1
 
 def _normPath(path):
     while path.endswith(os.sep):
@@ -15,14 +19,19 @@ def _normCase(path_string):
     
 class Item():
     def findSize(self): pass
-    def findHash(self): return 'not implemented yet'
+    def findHash(self): pass
     def getName(self): return self._name
     def getSize(self): return self._size
+    def getHashFunc(self):
+        return self._parent.getHashFunc()
         
-    def getHash(self):
-        if self._hash == None:
-            self.findHash()    
-        return self._hash
+    def getHash(self, as_hex=True, func=None):
+        if self._hash == None or self.getHashFunc != func:
+            self.findHash(func)    
+        if as_hex:
+            return self._hash
+        else:
+            return unhexlify(self._hash)
         
     def getPath(self):
         return os.path.join(self._parent.getPath(), self._name)
@@ -42,9 +51,6 @@ class Item():
 
         
 class File(Item):
-
-    hash_chunksize = 2**20
-    
     def findStat(self):
         statinfo = os.stat(self.getPath())
         self._size = statinfo.st_size
@@ -55,8 +61,10 @@ class File(Item):
     def findSize(self):
         self.findStat()
         
-    def findHash(self, chunksize = hash_chunksize):
-        h = sha1()
+    def findHash(self, func=None, chunksize = hash_chunksize):
+        if not func:
+            func = self.getHashFunc()
+        h = func()
         with open(self.getPath(), 'rb') as fd:
             while True:
                 chunk = fd.read(chunksize)
@@ -79,7 +87,20 @@ class Dir(Item):
         for item in (self._dirs + self._files):
             size += item.getSize()
         self._size = size
-          
+        
+    def findHash(self, func=None):
+        # hash is sha1 of XOR all _hashs of content
+        # and _name (hash of _name excluded by default)
+        if not func:
+            func = self.getHashFunc()
+        h = func()
+        #h.update(self._name.encode('utf8'))
+        hash = h.hexdigest()
+        for item in self.getItems():
+            hash = '{0:0>{1}x}'.format(
+                        int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
+        self._hash = hash             
+            
     def getItemsCount(self):
         return len(self._dirs) + len(self._files)
         
@@ -144,8 +165,12 @@ class Dir(Item):
 class Root(Dir):
     def getPath(self):
         return os.path.join(self._parentdir, self._name)
+    
+    def getHashFunc(self):
+        return self._hash_func
  
-    def __init__(self, path, find_hashes=False):
+    def __init__(self, path, find_hashes=False, hash_func_=hash_func):
+        self._hash_func = hash_func_
         path = _normPath(path)
         self._parentdir = os.path.dirname(path)
         Dir.__init__(self, os.path.basename(path), None, find_hashes)
