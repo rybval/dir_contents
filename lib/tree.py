@@ -98,31 +98,31 @@ class Dir(Item):
     def getDirs(self):
         return self._dirs
         
-    def _getALLCount(self, thingname):
-        thingname = thingname.rstrip('s')
-        getThingsCount = Dir.__getattr__('get'+thingname+'sCount')
-        getAllThingsCount = Dir.__getattr__('getALL'+thingname+'sCount')
-        count = Dir.getThingsCount(self)
-        for dir_ in self.getDirs():
-            count += Dir.getAllThingsCount(dir_)
-        return count
+    def getItemsCond(self, cond_сallback, type=Item, deep=False, count=False):
+        if count:
+            out = 0
+        else:
+            out = []
+            
+        if type == Item:
+            getfunc = Dir.getItems
+        elif type == File:
+            getfunc = Dir.getFiles
+        elif type == Dir:
+            getfunc = Dir.getDirs
+            
+        for item in getfunc(self):
+            if cond_сallback(item):
+                if count:
+                    out += 1
+                else:
+                    out.append(item)
+
+        if deep:
+            for dir_ in self._dirs:
+                out += dir_.getItemsCond(cond_сallback, type, True, count)
         
-    def getAllItemsCount(self): return self._getALLCount('Items')
-    def getAllFilesCount(self): return self._getALLCount('Files')
-    def getAllDirsCount(self): return self._getALLCount('Dirs')
-    
-    def _getALL(self, thingname):
-        thingname = thingname.rstrip('s')
-        getThings = Dir.__getattr__('get'+thingname+'s')
-        getAllThings = Dir.__getattr__('getALL'+thingname+'s')
-        things = list(Dir.getThings(self))
-        for dir_ in self.getDirs():
-            things += list(Dir.getAllThings(dir_))
-        return things
-    
-    def getAllItems(self): self._getALL('Items')
-    def getAllFiles(self): self._getAll('Files')
-    def getAllDirs(self): self._getAll('Dirs')
+        return out
         
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
@@ -130,12 +130,12 @@ class Dir(Item):
         files = []
         dirs = []
         path = self.getPath()
-        for name in os.listdir(path):
-            ip = os.path.join(path, name)
+        for name_ in os.listdir(path):
+            ip = os.path.join(path, name_)
             if os.path.isdir(ip):
-                dirs.append(Dir(name, self, find_hashes))
+                dirs.append(Dir(name_, self, find_hashes))
             elif os.path.isfile(ip):
-                files.append(File(name, self, find_hashes))
+                files.append(File(name_, self, find_hashes))
         self._files = tuple(files)
         self._dirs = tuple(dirs)
         Item.__init__(self, name, parent, find_hashes)
