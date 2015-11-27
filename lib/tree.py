@@ -2,21 +2,22 @@ import os
 import sys
 from hashlib import sha1
 
-class Item:
-    def _normCase(path_string):
-        if sys.platform == 'win32':
-            return path_string.casefold()
-        else:
-            return path_string
-            
-    def findSize(self): pass
-    def findHash(self): pass
-    def getName(self):  return self._name
+def _normPath(path):
+    while path.endswith(os.sep):
+        path = path[:-1]
+    return path
+
+def _normCase(path_string):
+    if sys.platform == 'win32':
+        return path_string.casefold()
+    else:
+        return path_string
     
-    def getSize(self):
-        if self._size == None:
-            self.findSize()
-        return self._size
+class Item():
+    def findSize(self): pass
+    def findHash(self): return 'not implemented yet'
+    def getName(self): return self._name
+    def getSize(self): return self._size
         
     def getHash(self):
         if self._hash == None:
@@ -26,28 +27,35 @@ class Item:
     def getPath(self):
         return os.path.join(self._parent.getPath(), self._name)
     
-    def __init__(self, name, parent):
+    def __init__(self, name, parent, find_hash):
         self._name = name
         self._parent = parent
-        self._size = None
+        self.findSize()
         self._hash = None
+        if find_hash:
+            self.findHash()
+        
+    def refresh(self):
+        # need optimisation
+        type_ = type(self)
+        self = type_.__init__(self._name, self._parent)
 
-
+        
 class File(Item):
 
-    def_chunksize = 2**20
+    hash_chunksize = 2**20
     
-    def findSize(self):
-        self._size = os.path.getsize(self.getPath())
-        
     def findStat(self):
         statinfo = os.stat(self.getPath())
         self._size = statinfo.st_size
         self._inode = statinfo.st_ino
         self._device = statinfo.st_dev
         self._hlinks = statinfo.st_nlink
+    
+    def findSize(self):
+        self.findStat()
         
-    def findHash(self, chunksize = def_chunksize):
+    def findHash(self, chunksize = hash_chunksize):
         h = sha1()
         with open(self.getPath(), 'rb') as fd:
             while True:
@@ -55,46 +63,42 @@ class File(Item):
                 if chunk:
                     h.update(chunk)
                 else:
-                    return h.hexdigest()
+                    self._hash = h.hexdigest()
+                    return
             
-    def getInode(self):
-        if self._inode == None:
-            self.findStat()
-        return self._inode
+    def getInode(self): return self._inode  
+    def getDevice(self): return self._device
+    def getHardlinks(self): return self._hlinks
         
-    def getDevice(self): 
-        if self._device == None:
-            self.findStat()
-        return self._device
-
-    def getHardlinks(self):
-        if self._hlinks == None:
-            self.findStat()
-        return self._hlinks
-        
-    def __init__(self, name, parent, find_size, find_inode, find_hash):
-        Item.__init__(self, name, parent)
-        self._inode = None
-        self._device = None
-        self._hlinks = None
-        
-        if find_inode:
-            self.findStat()
-        elif find_size:
-            self.findSize()
+    def __init__(self, name, parent, find_hash):
+        Item.__init__(self, name, parent, find_hash)
             
-        if find_hash:
-            self.findHash()
-
 class Dir(Item):
     def findSize(self):
         size = 0
         for item in self._content:
             size += item.getSize()
         self._size = size
+          
+    def getItemsCount(self):
+        return len(self._content)
         
-    def getContent(self): 
-        return self._content
+    def getFilesCount(self):
+        count = 0
+        for item in self._content:
+            if type(item) is File:
+                count += 1
+        return count
+        
+    def getDirsCount(self):
+        count = 0
+        for item in self._content:
+            if type(item) is Dir:
+                count += 1
+        return count
+        
+    def getItems(self): 
+        return tuple(self._content)
         
     def getFiles(self):
         return tuple(i for i in self._content if type(i) is File)
@@ -102,33 +106,55 @@ class Dir(Item):
     def getDirs(self):
         return tuple(i for i in self._content if type(i) is Dir)
         
-    def __init__(self, name, parent, find_sizes, find_inodes, find_hashes):
-        Item.__init__(self, name, parent)
+    def _getALLCount(self, thingname):
+        thingname = thingname.rstrip('s')
+        getThingsCount = Dir.__getattr__('get'+thingname+'sCount')
+        getAllThingsCount = Dir.__getattr__('getALL'+thingname+'sCount')
+        count = Dir.getThingsCount(self)
+        for dir_ in self.getDirs():
+            count += Dir.getAllThingsCount(dir_)
+        return count
+        
+    def getAllItemsCount(self): return self._getALLCount('Items')
+    def getAllFilesCount(self): return self._getALLCount('Files')
+    def getAllDirsCount(self): return self._getALLCount('Dirs')
+    
+    def _getALL(self, thingname):
+        thingname = thingname.rstrip('s')
+        getThings = Dir.__getattr__('get'+thingname+'s')
+        getAllThings = Dir.__getattr__('getALL'+thingname+'s')
+        things = list(Dir.getThings(self))
+        for dir_ in self.getDirs():
+            things += list(Dir.getAllThings(dir_))
+        return things
+    
+    def getAllItems(self): self._getALL('Items')
+    def getAllFiles(self): self._getAll('Files')
+    def getAllDirs(self): self._getAll('Dirs')
+        
+    def __init__(self, name, parent, find_hashes):
+        self._parent = parent
+        self._name = name
         content = []
         path = self.getPath()
         for name in os.listdir(path):
             ip = os.path.join(path, name)
             if os.path.isdir(ip):
-                content.append(Dir(name, self, find_sizes, 
-                                                     find_inodes, find_hashes))
+                content.append(Dir(name, self, find_hashes))
             elif os.path.isfile(ip):
-                content.append(File(name, self, find_sizes, 
-                                                     find_inodes, find_hashes))
+                content.append(File(name, self, find_hashes))
         self._content = tuple(content)
-        
+        Item.__init__(self, name, parent, find_hashes)
+
 
 class Root(Dir):
-    def _normPath(self, path):
-        while path.endswith(os.sep):
-            path = path[:-1]
-        return path
-        
     def getPath(self):
         return os.path.join(self._parentdir, self._name)
  
-    def __init__(self, path, find_sizes=False, 
-                 find_inodes=False, find_hashes=False):
-        path = self._normPath(path)
+    def __init__(self, path, find_hashes=False):
+        path = _normPath(path)
         self._parentdir = os.path.dirname(path)
-        Dir.__init__(self, os.path.basename(path), None,
-                           find_sizes, find_inodes, find_hashes)
+        Dir.__init__(self, os.path.basename(path), None, find_hashes)
+                           
+    def refresh(self, hashes=False):
+        self = Root.__init__(self.getPath(), hashes)
