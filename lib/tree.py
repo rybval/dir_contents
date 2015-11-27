@@ -76,35 +76,27 @@ class File(Item):
 class Dir(Item):
     def findSize(self):
         size = 0
-        for item in self._content:
+        for item in (self._dirs + self._files):
             size += item.getSize()
         self._size = size
           
     def getItemsCount(self):
-        return len(self._content)
+        return len(self._dirs) + len(self._files)
         
     def getFilesCount(self):
-        count = 0
-        for item in self._content:
-            if type(item) is File:
-                count += 1
-        return count
+        return len(self._files)
         
     def getDirsCount(self):
-        count = 0
-        for item in self._content:
-            if type(item) is Dir:
-                count += 1
-        return count
+        return len(self._dirs)
         
     def getItems(self): 
-        return tuple(self._content)
+        return self._dirs + self._files
         
     def getFiles(self):
-        return tuple(i for i in self._content if type(i) is File)
+        return self._files
         
     def getDirs(self):
-        return tuple(i for i in self._content if type(i) is Dir)
+        return self._dirs
         
     def _getALLCount(self, thingname):
         thingname = thingname.rstrip('s')
@@ -135,15 +127,17 @@ class Dir(Item):
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
         self._name = name
-        content = []
+        files = []
+        dirs = []
         path = self.getPath()
         for name in os.listdir(path):
             ip = os.path.join(path, name)
             if os.path.isdir(ip):
-                content.append(Dir(name, self, find_hashes))
+                dirs.append(Dir(name, self, find_hashes))
             elif os.path.isfile(ip):
-                content.append(File(name, self, find_hashes))
-        self._content = tuple(content)
+                files.append(File(name, self, find_hashes))
+        self._files = tuple(files)
+        self._dirs = tuple(dirs)
         Item.__init__(self, name, parent, find_hashes)
 
 
