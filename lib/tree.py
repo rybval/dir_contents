@@ -167,7 +167,7 @@ class Dir(Item):
             out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
         elif path.startswith(_normCase(self.getPath())):
             result = self.getContent(
-                               lambda item: _normCase(item.getPath()) == path)
+                  lambda item: _normCase(item.getPath()) == path, deep = True)
             if len(result) == 1:
                 out = result[0]
             elif len(result) == 0:
