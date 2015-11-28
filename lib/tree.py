@@ -16,7 +16,7 @@ def _normCase(path_string):
         return path_string.casefold()
     else:
         return path_string
-    
+
 class Item():
     def findSize(self): pass
     def findHash(self): pass
@@ -24,7 +24,7 @@ class Item():
     def getSize(self): return self._size
     def getHashFunc(self):
         return self._parent.getHashFunc()
-        
+
     def getHash(self, as_hex=True, func=None):
         if self._hash == None or self.getHashFunc != func:
             self.findHash(func)    
@@ -32,10 +32,10 @@ class Item():
             return self._hash
         else:
             return unhexlify(self._hash)
-        
+
     def getPath(self):
         return os.path.join(self._parent.getPath(), self._name)
-    
+
     def __init__(self, name, parent, find_hash):
         self._name = name
         self._parent = parent
@@ -43,13 +43,16 @@ class Item():
         self._hash = None
         if find_hash:
             self.findHash()
-        
+
+    def __str__(self):
+        return self.getName()
+
     def refresh(self):
         # need optimisation
         type_ = type(self)
         self = type_.__init__(self._name, self._parent)
 
-        
+
 class File(Item):
     def findStat(self):
         statinfo = os.stat(self.getPath())
@@ -80,7 +83,8 @@ class File(Item):
         
     def __init__(self, name, parent, find_hash):
         Item.__init__(self, name, parent, find_hash)
-            
+
+
 class Dir(Item):
     def findSize(self):
         size = 0
@@ -101,7 +105,7 @@ class Dir(Item):
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
         self._hash = hash
 
-            
+
     def getContent(self, cond_сallback=lambda i: True, 
                                            type=Item, deep=False, count=False):
         if count:
@@ -128,7 +132,7 @@ class Dir(Item):
                 out += dir_.getContent(cond_сallback, type, True, count)
 
         return out
-        
+
     def __getitem__(self, key):
         key = _normCase(_normPath(key))
         if key == '.':
@@ -162,6 +166,10 @@ class Dir(Item):
         else:
             out = None
         return out
+        
+    def __iter__(self):
+       for item in self.getContent():
+          yield item
 
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
@@ -183,15 +191,15 @@ class Dir(Item):
 class Root(Dir):
     def getPath(self):
         return os.path.join(self._parentdir, self._name)
-    
+
     def getHashFunc(self):
         return self._hash_func
- 
+
     def __init__(self, path, find_hashes=False, hash_func_=hash_func):
         self._hash_func = hash_func_
         path = _normPath(path)
         self._parentdir = os.path.dirname(path)
         Dir.__init__(self, os.path.basename(path), None, find_hashes)
-                           
+
     def refresh(self, hashes=False):
         self = Root.__init__(self.getPath(), hashes)
