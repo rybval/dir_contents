@@ -37,8 +37,8 @@ class Item():
     def getPath(self):
         return os.path.join(self._parent.getPath(), self._name)
 
-    def __init__(self, name, parent, find_hash):
-        self._accessible = True
+    def __init__(self, name, parent, find_hash, accessible = True):
+        self._accessible = accessible
         self._name = name
         self._parent = parent
         self.findSize()
@@ -99,7 +99,7 @@ class File(Item):
 class Dir(Item):
     def findSize(self):
         size = 0
-        for item in (self._dirs + self._files):
+        for item in self._content:
             if item.isAccessible():
                 size += item.getSize()
         self._size = size
@@ -118,30 +118,33 @@ class Dir(Item):
         self._hash = hash
 
 
-    def getContent(self, cond_сallback=lambda i: True, 
-                                           type=Item, deep=False, count=False):
-        if count:
-            out = 0
+    def getContent(self, cond_сallback=None, 
+                                          type_=None, deep=False, count=False):
+        if not type_:
+            content = list(self._content)
         else:
-            out = []
-
-        if type == Item:
-            content = self._dirs + self._files
-        elif type == File:
-            content = self._files
-        elif type == Dir:
-            content = self._dirs
-
-        for item in content:
-            if cond_сallback(item):
-                if count:
-                    out += 1
-                else:
-                    out.append(item)
+            content = [item for item in self._content if type(item) == type_] 
+        
+        if not cond_сallback:
+            if count:
+                out = len(content)
+            else:
+                out = content
+        else:
+            if count:
+                out = 0
+            else:
+                out = []
+            for item in content:
+                if cond_сallback(item):
+                    if count:
+                        out += 1
+                    else:
+                        out.append(item)
 
         if deep:
-            for dir_ in self._dirs:
-                out += dir_.getContent(cond_сallback, type, True, count)
+            for dir_ in self.getContent(type_ = Dir):
+                out += dir_.getContent(cond_сallback, type_, True, count)
 
         return out
 
@@ -167,7 +170,7 @@ class Dir(Item):
             out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
         elif path.startswith(_normCase(self.getPath())):
             result = self.getContent(
-                  lambda item: _normCase(item.getPath()) == path, deep = True)
+                   lambda item: _normCase(item.getPath()) == path, deep = True)
             if len(result) == 1:
                 out = result[0]
             elif len(result) == 0:
@@ -186,17 +189,17 @@ class Dir(Item):
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
         self._name = name
-        files = []
-        dirs = []
+        content = []
         path = self.getPath()
         for name_ in os.listdir(path):
             ip = os.path.join(path, name_)
             if os.path.isdir(ip):
-                dirs.append(Dir(name_, self, find_hashes))
+                content.append(Dir(name_, self, find_hashes))
             elif os.path.isfile(ip):
-                files.append(File(name_, self, find_hashes))
-        self._files = tuple(files)
-        self._dirs = tuple(dirs)
+                content.append(File(name_, self, find_hashes))
+            else:
+                content.append(Item(name_, self, find_hashes, False))
+        self._content = tuple(content)
         Item.__init__(self, name, parent, find_hashes)
 
 
