@@ -96,37 +96,62 @@ class Dir(Item):
         h = func()
         #h.update(self._name.encode('utf8'))
         hash = h.hexdigest()
-        for item in self.getItems():
+        for item in self.getContent():
             hash = '{0:0>{1}x}'.format(
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
         self._hash = hash             
             
-    def getItemsCount(self):
-        return len(self._dirs) + len(self._files)
+    def getContentCount(self, deep=False):
+        count = len(self._dirs) + len(self._files)
+        if deep:
+            for dir_ in self._dirs:
+                count += dir_.getContentCount(True)
+        return count
+            
         
-    def getFilesCount(self):
-        return len(self._files)
+    def getFilesCount(self, deep=True):
+        count = len(self._files)
+        if deep:
+            for dir_ in self._dirs:
+                count += dir_.getFilesCount(True)
+        return count
         
-    def getDirsCount(self):
-        return len(self._dirs)
+    def getDirsCount(self, deep=True):
+        count = len(self._dirs)
+        if deep:
+            for dir_ in self._dirs:
+                count += dir_.getDirsCount(True)
+        return count
         
-    def getItems(self): 
-        return self._dirs + self._files
+    def getContent(self, deep=True): 
+        out = self._dirs + self._files
+        if deep:
+            for dir_ in self._dirs:
+                out += dir_.getContent(True)
+        return out
         
-    def getFiles(self):
-        return self._files
+    def getFiles(self, deep=True):
+        out = self._files
+        if deep:
+            for dir_ in self._dirs:
+                out += dir_.getFiles(True)
+        return out
         
-    def getDirs(self):
-        return self._dirs
+    def getDirs(self, deep=True):
+        out = self._dirs
+        if deep:
+            for dir_ in self._dirs:
+                out += dir_.getDirs(True)
+        return out
         
-    def getItemsCond(self, cond_сallback, type=Item, deep=False, count=False):
+    def getCond(self, cond_сallback, type=Item, deep=False, count=False):
         if count:
             out = 0
         else:
             out = []
             
         if type == Item:
-            getfunc = Dir.getItems
+            getfunc = Dir.getContent
         elif type == File:
             getfunc = Dir.getFiles
         elif type == Dir:
@@ -141,7 +166,7 @@ class Dir(Item):
 
         if deep:
             for dir_ in self._dirs:
-                out += dir_.getItemsCond(cond_сallback, type, True, count)
+                out += dir_.getCond(cond_сallback, type, True, count)
         
         return out
         
