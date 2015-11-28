@@ -100,64 +100,22 @@ class Dir(Item):
             hash = '{0:0>{1}x}'.format(
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
         self._hash = hash             
-            
-    def getContentCount(self, deep=False):
-        count = len(self._dirs) + len(self._files)
-        if deep:
-            for dir_ in self._dirs:
-                count += dir_.getContentCount(True)
-        return count
-            
         
-    def getFilesCount(self, deep=True):
-        count = len(self._files)
-        if deep:
-            for dir_ in self._dirs:
-                count += dir_.getFilesCount(True)
-        return count
-        
-    def getDirsCount(self, deep=True):
-        count = len(self._dirs)
-        if deep:
-            for dir_ in self._dirs:
-                count += dir_.getDirsCount(True)
-        return count
-        
-    def getContent(self, deep=True): 
-        out = self._dirs + self._files
-        if deep:
-            for dir_ in self._dirs:
-                out += dir_.getContent(True)
-        return out
-        
-    def getFiles(self, deep=True):
-        out = self._files
-        if deep:
-            for dir_ in self._dirs:
-                out += dir_.getFiles(True)
-        return out
-        
-    def getDirs(self, deep=True):
-        out = self._dirs
-        if deep:
-            for dir_ in self._dirs:
-                out += dir_.getDirs(True)
-        return out
-        
-    def getCond(self, cond_сallback, type=Item, deep=False, count=False):
+    def getContent(self, cond_сallback=lambda i: True, 
+                                           type=Item, deep=False, count=False):
         if count:
             out = 0
         else:
             out = []
-            
+
         if type == Item:
-            getfunc = Dir.getContent
+            content = self._dirs + self._files
         elif type == File:
-            getfunc = Dir.getFiles
+            content = self._files
         elif type == Dir:
-            getfunc = Dir.getDirs
-            
-        for item in getfunc(self):
+            content = self._dirs
+
+        for item in content:
             if cond_сallback(item):
                 if count:
                     out += 1
@@ -166,8 +124,8 @@ class Dir(Item):
 
         if deep:
             for dir_ in self._dirs:
-                out += dir_.getCond(cond_сallback, type, True, count)
-        
+                out += dir_.getContent(cond_сallback, type, True, count)
+
         return out
         
     def __init__(self, name, parent, find_hashes):
