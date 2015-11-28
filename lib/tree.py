@@ -18,6 +18,7 @@ def _normCase(path_string):
         return path_string
 
 class Item():
+    def isAccessible(self): return self._accessible
     def findSize(self): pass
     def findHash(self): pass
     def getName(self): return self._name
@@ -37,6 +38,7 @@ class Item():
         return os.path.join(self._parent.getPath(), self._name)
 
     def __init__(self, name, parent, find_hash):
+        self._accessible = True
         self._name = name
         self._parent = parent
         self.findSize()
@@ -55,11 +57,15 @@ class Item():
 
 class File(Item):
     def findStat(self):
-        statinfo = os.stat(self.getPath())
-        self._size = statinfo.st_size
-        self._inode = statinfo.st_ino
-        self._device = statinfo.st_dev
-        self._hlinks = statinfo.st_nlink
+        try:
+            statinfo = os.stat(self.getPath())
+        except:
+            self._accessible = False
+        else:
+            self._size = statinfo.st_size
+            self._inode = statinfo.st_ino
+            self._device = statinfo.st_dev
+            self._hlinks = statinfo.st_nlink
     
     def findSize(self):
         self.findStat()
@@ -68,14 +74,19 @@ class File(Item):
         if not func:
             func = self.getHashFunc()
         h = func()
-        with open(self.getPath(), 'rb') as fd:
+        try: 
+            fd = open(self.getPath(), 'rb')
+        except:
+            self._accessible = False
+        else:
             while True:
                 chunk = fd.read(chunksize)
                 if chunk:
                     h.update(chunk)
                 else:
                     self._hash = h.hexdigest()
-                    return
+                    break
+            fd.close()
             
     def getInode(self): return self._inode  
     def getDevice(self): return self._device
@@ -89,7 +100,8 @@ class Dir(Item):
     def findSize(self):
         size = 0
         for item in (self._dirs + self._files):
-            size += item.getSize()
+            if item.isAccessible():
+                size += item.getSize()
         self._size = size
         
     def findHash(self, func=None):
