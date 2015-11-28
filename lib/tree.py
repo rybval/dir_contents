@@ -99,8 +99,9 @@ class Dir(Item):
         for item in self.getContent():
             hash = '{0:0>{1}x}'.format(
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
-        self._hash = hash             
-        
+        self._hash = hash
+
+            
     def getContent(self, cond_сallback=lambda i: True, 
                                            type=Item, deep=False, count=False):
         if count:
@@ -128,6 +129,40 @@ class Dir(Item):
 
         return out
         
+    def __getitem__(self, key):
+        key = _normCase(_normPath(key))
+        if key == '.':
+            return self
+        else:
+            result = self.getContent(
+                                lambda item: _normCase(item.getName()) == key)
+            if len(result) == 1:
+                return result[0]
+            elif len(result) == 0:
+                raise KeyError('Element with this name not found')
+            else:
+                raise KeyError('More than one element have'
+                                'this name in current dir')
+
+    def getByPath(self, path):
+        path = _normCase(_normPath(path))
+        if path.startswith('.'):
+            chain = path.split(os.sep)
+            out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
+        elif path.startswith(_normCase(self.getPath())):
+            result = self.getContent(
+                               lambda item: _normCase(item.getPath()) == path)
+            if len(result) == 1:
+                out = result[0]
+            elif len(result) == 0:
+                out = None
+            else:
+                raise KeyError('More than one element have'
+                                'this name in current dir')
+        else:
+            out = None
+        return out
+
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
         self._name = name
