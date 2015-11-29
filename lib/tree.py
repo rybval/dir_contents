@@ -191,16 +191,22 @@ class Dir(Item):
         self._name = name
         content = []
         path = self.getPath()
-        for name_ in os.listdir(path):
-            ip = os.path.join(path, name_)
-            if os.path.isdir(ip):
-                content.append(Dir(name_, self, find_hashes))
-            elif os.path.isfile(ip):
-                content.append(File(name_, self, find_hashes))
-            else:
-                content.append(Item(name_, self, find_hashes, False))
+        try:
+            names = os.listdir(path)
+        except:
+            accessible = False
+        else:
+            accessible = True
+            for name_ in names:
+                ip = os.path.join(path, name_)
+                if os.path.isdir(ip):
+                    content.append(Dir(name_, self, find_hashes))
+                elif os.path.isfile(ip):
+                    content.append(File(name_, self, find_hashes))
+                else:
+                    content.append(Item(name_, self, find_hashes, False))
         self._content = tuple(content)
-        Item.__init__(self, name, parent, find_hashes)
+        Item.__init__(self, name, parent, find_hashes, accessible)
 
 
 class Root(Dir):
