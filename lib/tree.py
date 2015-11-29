@@ -129,8 +129,7 @@ class Dir(Item):
         self._hash = hash
 
 
-    def getContent(self, cond_сallback=None, 
-                                          type_=None, deep=False, count=False):
+    def getContent(self, cond_сallback=None, type_=None, depth=1, count=False):
         if not type_:
             content = list(self._content)
         else:
@@ -153,9 +152,14 @@ class Dir(Item):
                     else:
                         out.append(item)
 
-        if deep:
+        if depth != 1:
+            if isinstance(depth, int) and depth > 1:
+                depth -= 1
+            elif depth not in (0, 'max', 'MAX', 'Max'):
+                raise ValueError('depth must be an' 
+                                 'natural number, 0 or "max"')
             for dir_ in self.getContent(type_ = Dir):
-                out += dir_.getContent(cond_сallback, type_, True, count)
+                out += dir_.getContent(cond_сallback, type_, depth, count)
 
         return out
 
@@ -181,7 +185,7 @@ class Dir(Item):
             out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
         elif path.startswith(_normCase(self.getPath())):
             result = self.getContent(
-                   lambda item: _normCase(item.getPath()) == path, deep = True)
+                 lambda item: _normCase(item.getPath()) == path, depth = 'max')
             if len(result) == 1:
                 out = result[0]
             elif len(result) == 0:
