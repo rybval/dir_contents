@@ -61,6 +61,10 @@ class File(Item):
             statinfo = os.stat(self.getPath())
         except:
             self._accessible = False
+            self._size = None
+            self._inode = None
+            self._device = None
+            self._hlinks = None
         else:
             self._size = statinfo.st_size
             self._inode = statinfo.st_ino
@@ -98,8 +102,11 @@ class File(Item):
 
 class Dir(Item):
     def findSize(self):
+        if not self._accessible:
+            self._size = None
+            return
         size = 0
-        for item in self._content:
+        for item in self.getContent():
             if item.isAccessible():
                 size += item.getSize()
         self._size = size
@@ -107,13 +114,17 @@ class Dir(Item):
     def findHash(self, func=None):
         # hash is sha1 of XOR all _hashs of content
         # and _name (hash of _name excluded by default)
+        if not self._accessible:
+            self._hash = None
+            return
         if not func:
             func = self.getHashFunc()
         h = func()
         #h.update(self._name.encode('utf8'))
         hash = h.hexdigest()
         for item in self.getContent():
-            hash = '{0:0>{1}x}'.format(
+            if item.isAccessible():
+                hash = '{0:0>{1}x}'.format(
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
         self._hash = hash
 
