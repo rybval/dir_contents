@@ -129,37 +129,61 @@ class Dir(Item):
         self._hash = hash
 
 
-    def getContent(self, cond_сallback=None, type_=None, depth=1, count=False):
-        if not type_:
-            content = list(self._content)
-        else:
-            content = [item for item in self._content if type(item) == type_] 
+    def getContent(self, cond_сallback=None, type_=None, 
+                                    min_depth=1,  max_depth=1, count=False):
+        if not isinstance(min_depth, int) or (isinstance(max_depth, int) 
+                                                    and min_depth > max_depth):
+            raise ValueError('min_depth must be an natural number')
         
-        if not cond_сallback:
-            if count:
-                out = len(content)
-            else:
-                out = content
+        if count:
+            out = 0
         else:
-            if count:
-                out = 0
-            else:
-                out = []
-            for item in content:
-                if cond_сallback(item):
-                    if count:
-                        out += 1
-                    else:
-                        out.append(item)
+            out = []
 
-        if depth != 1:
-            if isinstance(depth, int) and depth > 1:
-                depth -= 1
-            elif depth not in (0, 'max', 'MAX', 'Max'):
+        if min_depth == 1:
+            if not type_:
+                content = list(self._content)
+            else:
+                if isinstance(type(type_), str):
+                    if type_.casefold() in ('dir', 'directory', 'folder'):
+                        type_ = Dir
+                    elif type_.casefold() == 'file':
+                        type_ = File
+                    elif type_.casefold() in ('n/d', 'item'):
+                        type_ = Item
+                    else:
+                        raise ValueError('type_ must be "Dir", "File", ' 
+                                         '"Item" or type() instance')
+                elif type(type_) is not type:
+                    raise ValueError('type_ must be "Dir", "File", "Item" '
+                                     'or type() instance')
+                
+                content = [it for it in self._content if type(it) == type_]                        
+            
+            if not cond_сallback:
+                if count:
+                    out += len(content)
+                else:
+                    out += content
+            else:
+                for item in content:
+                    if cond_сallback(item):
+                        if count:
+                            out += 1
+                        else:
+                            out += [item]
+        elif min_depth > 1:
+            min_depth -= 1
+
+        if max_depth != 1:
+            if isinstance(max_depth, int) and max_depth > 1:
+                max_depth -= 1
+            elif max_depth not in ('max', 'MAX', 'Max'):
                 raise ValueError('depth must be an' 
-                                 'natural number, 0 or "max"')
+                                 'natural number or "max"')
             for dir_ in self.getContent(type_ = Dir):
-                out += dir_.getContent(cond_сallback, type_, depth, count)
+                out += dir_.getContent(cond_сallback, type_, 
+                                               min_depth, max_depth, count)
 
         return out
 
@@ -185,7 +209,7 @@ class Dir(Item):
             out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
         elif path.startswith(_normCase(self.getPath())):
             result = self.getContent(
-                 lambda item: _normCase(item.getPath()) == path, depth = 'max')
+             lambda item: _normCase(item.getPath()) == path, max_depth = 'max')
             if len(result) == 1:
                 out = result[0]
             elif len(result) == 0:
