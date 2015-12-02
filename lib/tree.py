@@ -6,6 +6,11 @@ from binascii import unhexlify, hexlify
 hash_chunksize = 2**20
 hash_func = sha1
 
+def _appendIfNotNone(dict, key, data):
+    if data != None:
+        dict[key] = data
+    
+
 def _normPath(path):
     while path.endswith(os.sep):
         path = path[:-1]
@@ -53,6 +58,19 @@ class Item():
         # need optimisation
         type_ = type(self)
         self = type_.__init__(self._name, self._parent)
+        
+    def toDict(self):
+        d = {
+            'name' : self._name,
+            'path' : self.getPath(),
+            'accessible' : self._accessible,
+            'type' : 'item'
+        }
+        
+        _appendIfNotNone(d, 'size', self._size)
+        _appendIfNotNone(d, 'hash', self._hash)
+            
+        return d
 
 
 class File(Item):
@@ -98,6 +116,15 @@ class File(Item):
         
     def __init__(self, name, parent, find_hash):
         Item.__init__(self, name, parent, find_hash)
+        
+    def toDict(self):
+        d = Item.toDict(self)
+        d['type'] = 'file'
+        _appendIfNotNone(d, 'inode', self._inode)
+        _appendIfNotNone(d, 'device', self._device)
+        _appendIfNotNone(d, 'hardlinks', self._hlinks)
+        return d
+        
 
 
 class Dir(Item):
@@ -246,6 +273,13 @@ class Dir(Item):
                     content.append(Item(name_, self, find_hashes, False))
         self._content = tuple(content)
         Item.__init__(self, name, parent, find_hashes, accessible)
+        
+    def toDict(self):
+        d = Item.toDict(self)
+        d['type'] = 'directory'
+        content = [item.toDict() for item in self.getContent()]
+        _appendIfNotNone(d, 'content', content)
+        return d
 
 
 class Root(Dir):
