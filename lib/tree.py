@@ -57,7 +57,10 @@ class Item():
     def refresh(self):
         # need optimisation
         type_ = type(self)
-        self = type_.__init__(self._name, self._parent)
+        find_hash = False
+        if self._hash != None:
+            find_hash = True
+        type_.__init__(self, self._name, self._parent, find_hash)
         
     def toDict(self):
         d = {
@@ -295,5 +298,8 @@ class Root(Dir):
         self._parentdir = os.path.dirname(path)
         Dir.__init__(self, os.path.basename(path), None, find_hashes)
 
-    def refresh(self, hashes=False):
-        self = Root.__init__(self.getPath(), hashes)
+    def refresh(self):
+        find_hash = False
+        if self._hash != None:
+            find_hash = True
+        Root.__init__(self, self.getPath(), find_hash, self.getHashFunc())
