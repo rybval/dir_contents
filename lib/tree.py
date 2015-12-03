@@ -53,6 +53,16 @@ class Item():
 
     def __str__(self):
         return self.getName()
+        
+    def _findsizeof(self, list=[]):
+        list += [self._accessible, self._name, self._size, self._hash]
+        sizeof = 0
+        for field in list:
+            sizeof += sys.getsizeof(field)
+        return sizeof
+        
+    def  __sizeof__(self):
+        return self._findsizeof()
 
     def refresh(self):
         # need optimisation
@@ -116,6 +126,9 @@ class File(Item):
     def getInode(self): return self._inode  
     def getDevice(self): return self._device
     def getHardlinks(self): return self._hlinks
+    
+    def  __sizeof__(self):
+        return self._findsizeof([self._inode, self._device, self._hlinks])
         
     def __init__(self, name, parent, find_hash):
         Item.__init__(self, name, parent, find_hash)
@@ -254,6 +267,9 @@ class Dir(Item):
     def __iter__(self):
        for item in self.getContent():
           yield item
+          
+    def  __sizeof__(self):
+        return self._findsizeof([self._content])
 
     def __init__(self, name, parent, find_hashes):
         self._parent = parent
