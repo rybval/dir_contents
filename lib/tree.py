@@ -10,8 +10,9 @@ def _appendIfNotNone(dict, key, data):
     if data != None:
         dict[key] = data
     
-
 def _normPath(path):
+    if sys.platform == 'win32':
+        path = path.replace('/','\\')
     while path.endswith(os.sep):
         path = path[:-1]
     return path
@@ -32,8 +33,8 @@ class Item():
         return self._parent.getHashFunc()
 
     def getHash(self, as_hex=True, func=None):
-        if self._hash == None or self.getHashFunc != func:
-            self.findHash(func)    
+        if self._hash is None or (func and self.getHashFunc() != func):
+            self.findHash(func)
         if as_hex:
             return self._hash
         else:
@@ -66,6 +67,11 @@ class Item():
 
     def refresh(self):
         # need optimisation
+        # добавить отдельное простое пересчитывание размера содержимого
+        # (без системных вызовов, чтобы можно было refresh малую папку
+        # и пересчитать размер родителя, а не рефрешить его полностью
+        # или автоматически дёргать метод пересчёта родителя/root'а 
+        # при рефреше подпапки)
         type_ = type(self)
         find_hash = False
         if self._hash != None:
@@ -245,30 +251,33 @@ class Dir(Item):
                 raise KeyError('More than one element have'
                                 'this name in current dir')
 
-    def getByPath(self, path):
+    def getByPath(self, path):        
         path = _normCase(_normPath(path))
-        if path.startswith('.'):
-            chain = path.split(os.sep)
-            out = self[chain[1]].getByPath(os.sep.join(['.']+chain[2:]))
-        elif path.startswith(_normCase(self.getPath())):
-            result = self.getContent(
-             lambda item: _normCase(item.getPath()) == path, max_depth = 'max')
-            if len(result) == 1:
-                out = result[0]
-            elif len(result) == 0:
-                out = None
-            else:
-                raise KeyError('More than one element have'
-                                'this name in current dir')
+        if path.startswith(os.path.join(_normCase(self.getPath()),'')):
+            path = '.' + path[len(self.getPath())-1:]
+        
+        if path.startswith('.'+os.sep):
+            path = path[2:]
         else:
-            out = None
-        return out
+            return None
+
+        chain = path.split(os.sep)
+        level = self
+        for name in chain:
+            for item in level._content:
+                if _normCase(item._name) == name:
+                    level = item
+                    break
+            else:
+                return None
+        return level
+
         
     def __iter__(self):
        for item in self.getContent():
           yield item
           
-    def  __sizeof__(self):
+    def __sizeof__(self):
         return self._findsizeof([self._content])
 
     def __init__(self, name, parent, find_hashes):
@@ -311,8 +320,12 @@ class Root(Dir):
     def __init__(self, path, find_hashes=False, hash_func_=hash_func):
         self._hash_func = hash_func_
         path = _normPath(path)
-        self._parentdir = os.path.dirname(path)
-        Dir.__init__(self, os.path.basename(path), None, find_hashes)
+        parent = os.path.dirname(path)
+        name = os.path.basename(path)
+        if sys.platform == 'win32' and not name and ':' in parent:
+            parent, name = name, parent + os.sep
+        self._parentdir = parent
+        Dir.__init__(self, name, None, find_hashes)
 
     def refresh(self):
         find_hash = False
