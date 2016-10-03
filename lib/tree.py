@@ -6,10 +6,12 @@ from binascii import unhexlify, hexlify
 hash_chunksize = 2**20
 hash_func = sha1
 
+
 def _appendIfNotNone(dict, key, data):
     if data != None:
         dict[key] = data
-    
+
+
 def _normPath(path):
     if sys.platform == 'win32':
         path = path.replace('/','\\')
@@ -17,18 +19,30 @@ def _normPath(path):
         path = path[:-1]
     return path
 
+
 def _normCase(path_string):
     if sys.platform == 'win32':
         return path_string.casefold()
     else:
         return path_string
 
+
 class Item():
-    def isAccessible(self): return self._accessible
-    def findSize(self): pass
-    def findHash(self): pass
-    def getName(self): return self._name
-    def getSize(self): return self._size
+    def isAccessible(self):
+        return self._accessible
+
+    def findSize(self):
+        raise NotImplementedError
+
+    def findHash(self, func=None):
+        raise NotImplementedError
+
+    def getName(self):
+        return self._name
+
+    def getSize(self):
+        return self._size
+
     def getHashFunc(self):
         return self._parent.getHashFunc()
 
@@ -55,14 +69,16 @@ class Item():
     def __str__(self):
         return self.getName()
         
-    def _findsizeof(self, list=[]):
-        list += [self._accessible, self._name, self._size, self._hash]
+    def _findsizeof(self, list_=None):
+        if list_ is None:
+            list_ = []
+        list_ += [self._accessible, self._name, self._size, self._hash]
         sizeof = 0
-        for field in list:
+        for field in list_:
             sizeof += sys.getsizeof(field)
         return sizeof
         
-    def  __sizeof__(self):
+    def __sizeof__(self):
         return self._findsizeof()
 
     def refresh(self):
@@ -79,12 +95,10 @@ class Item():
         type_.__init__(self, self._name, self._parent, find_hash)
         
     def toDict(self):
-        d = {
-            'name' : self._name,
-            'path' : self.getPath(),
-            'accessible' : self._accessible,
-            'type' : 'item'
-        }
+        d = {'name': self._name,
+             'path': self.getPath(),
+             'accessible': self._accessible,
+             'type': 'item'}
         
         _appendIfNotNone(d, 'size', self._size)
         _appendIfNotNone(d, 'hash', self._hash)
@@ -129,11 +143,16 @@ class File(Item):
                     break
             fd.close()
             
-    def getInode(self): return self._inode  
-    def getDevice(self): return self._device
-    def getHardlinks(self): return self._hlinks
+    def getInode(self):
+        return self._inode
+
+    def getDevice(self):
+        return self._device
+
+    def getHardlinks(self):
+        return self._hlinks
     
-    def  __sizeof__(self):
+    def __sizeof__(self):
         return self._findsizeof([self._inode, self._device, self._hlinks])
         
     def __init__(self, name, parent, find_hash):
@@ -147,7 +166,6 @@ class File(Item):
         _appendIfNotNone(d, 'hardlinks', self._hlinks)
         return d
         
-
 
 class Dir(Item):
     def findSize(self):
@@ -177,9 +195,8 @@ class Dir(Item):
                         int(hash, 16) ^ int(item.getHash(func), 16), len(hash))
         self._hash = hash
 
-
     def getContent(self, cond_сallback=None, type_=None, 
-                                    min_depth=1,  max_depth=1, count=False):
+                   min_depth=1,  max_depth=1, count=False):
         if not isinstance(min_depth, int) or (isinstance(max_depth, int) 
                                                     and min_depth > max_depth):
             raise ValueError('min_depth must be an natural number')
@@ -272,10 +289,9 @@ class Dir(Item):
                 return None
         return level
 
-        
     def __iter__(self):
-       for item in self.getContent():
-          yield item
+        for item in self.getContent():
+            yield item
           
     def __sizeof__(self):
         return self._findsizeof([self._content])
@@ -329,6 +345,6 @@ class Root(Dir):
 
     def refresh(self):
         find_hash = False
-        if self._hash != None:
+        if self._hash is not None:
             find_hash = True
         Root.__init__(self, self.getPath(), find_hash, self.getHashFunc())
